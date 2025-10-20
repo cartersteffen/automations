@@ -29,9 +29,23 @@
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-[Gates determined based on constitution file]
+This section must demonstrate how the implementation plan satisfies the
+project constitution. At minimum include explicit answers for the following
+checks (FAIL the gate until addressed):
+
+- Code Quality: list linting/formatting tools, static analysis, type checks,
+  and any complexity thresholds or ADRs required.
+- Testing: list test types to be added (unit, integration, contract, e2e), testing
+  strategy, CI test execution plan, and how new tests will be authored early.
+- User Experience: identify shared components/design system in use, accessibility
+  checks, and UX acceptance criteria for user-facing flows.
+- Performance: state measurable performance goals (latency p95/p99, throughput,
+  memory) and any proposed benchmarks or load tests to validate them.
+
+The plan MUST include links to test plans, ADRs, and proof artifacts (benchmarks,
+preliminary test reports) before Phase 1 design completes.
 
 ## Project Structure
 
@@ -48,6 +62,7 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
+
 <!--
   ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
   for this feature. Delete unused options and expand the chosen structure with
@@ -96,10 +111,9 @@ directories captured above]
 
 ## Complexity Tracking
 
-*Fill ONLY if Constitution Check has violations that must be justified*
+_Fill ONLY if Constitution Check has violations that must be justified_
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
-
+| Violation                  | Why Needed         | Simpler Alternative Rejected Because |
+| -------------------------- | ------------------ | ------------------------------------ |
+| [e.g., 4th project]        | [current need]     | [why 3 projects insufficient]        |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient]  |

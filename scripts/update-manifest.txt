@@ -1,0 +1,20 @@
+# Sample manifest for the updater. Lines starting with # are comments.
+# Supported prefixes: brew, brew-cask, mas, npm, pip, apt, snap, flatpak, custom
+
+# macOS examples
+brew:git
+brew-cask:google-chrome
+mas:1289583905 # Affinity Photo example (replace with your app id)
+
+# npm global package
+npm:pnpm
+
+# pip package
+pip:awscli
+
+# Linux examples
+# apt:vim
+# snap:code
+
+# custom: any shell command
+# custom:snap refresh --list

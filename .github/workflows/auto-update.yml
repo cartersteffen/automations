@@ -1,0 +1,30 @@
+name: Auto Update Installed Apps
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Runs daily at 00:00 UTC (change if you need a different timezone)
+    - cron: "0 0 * * *"
+
+jobs:
+  update:
+    # Use a self-hosted runner so updates apply to your machine.
+    runs-on: [self-hosted, auto-updater]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make update script executable
+        run: chmod +x scripts/update_all.sh
+
+      - name: Run updater
+        id: run_updater
+        run: |
+          mkdir -p artifacts
+          ./scripts/update_all.sh scripts/update-manifest.txt | tee artifacts/update.log
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-logs
+          path: artifacts/update.log
