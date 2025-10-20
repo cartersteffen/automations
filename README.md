@@ -5,8 +5,8 @@ This repository contains a small automation to check for updates for installed a
 Files added:
 
 - `.github/workflows/auto-update.yml` - GitHub Actions workflow; triggered by a button (workflow_dispatch) and a daily cron at 00:00 UTC.
-- `scripts/update_all.sh` - The updater script that reads `scripts/update-manifest.txt` and runs the appropriate update commands.
-- `scripts/update-manifest.txt` - A sample manifest listing packages to update.
+- `automations/update_all.sh` - The updater script that reads `automations/update-manifest.txt` and runs the appropriate update commands.
+- `automations/update-manifest.txt` - A sample manifest listing packages to update.
 
 How it runs
 
@@ -27,7 +27,7 @@ Security and safety notes
 
 Extending the manifest
 
-- You can add entries in `scripts/update-manifest.txt` using the supported prefixes:
+- You can add entries in `automations/update-manifest.txt` using the supported prefixes:
 
   - `brew:` for Homebrew packages
   - `brew-cask:` for Homebrew casks
@@ -42,13 +42,13 @@ Running locally
 Make the script executable:
 
 ```sh
-chmod +x scripts/update_all.sh
+chmod +x automations/update_all.sh
 ```
 
 Run:
 
 ```sh
-./scripts/update_all.sh scripts/update-manifest.txt
+./automations/update_all.sh automations/update-manifest.txt
 ```
 
 Logs
