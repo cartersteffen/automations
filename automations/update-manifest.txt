@@ -1,20 +1,19 @@
-# Sample manifest for the updater. Lines starting with # are comments.
+# Auto-update manifest for development applications
 # Supported prefixes: brew, brew-cask, mas, npm, pip, apt, snap, flatpak, custom
 
-# macOS examples
-brew:git
-brew-cask:google-chrome
-mas:1289583905 # Affinity Photo example (replace with your app id)
+# Development Applications
+brew-cask:postman
+brew-cask:intellij-idea-ce
+brew-cask:pycharm-ce
+brew-cask:android-studio
+brew-cask:visual-studio-code
+brew-cask:cursor
+brew-cask:windsurf
+brew-cask:figma
+brew-cask:docker-desktop
+brew-cask:github-copilot-for-xcode
 
-# npm global package
-npm:pnpm
-
-# pip package
-pip:awscli
-
-# Linux examples
-# apt:vim
-# snap:code
-
-# custom: any shell command
-# custom:snap refresh --list
+# System utilities (optional - uncomment as needed)
+# brew:git
+# npm:pnpm
+# pip:awscli
