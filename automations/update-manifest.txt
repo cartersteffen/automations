@@ -1,17 +1,23 @@
 # Auto-update manifest for development applications
 # Supported prefixes: brew, brew-cask, mas, npm, pip, apt, snap, flatpak, custom
 
+# Update Homebrew and all packages first
+custom:brew update
+custom:brew upgrade
+
 # Development Applications
 brew-cask:postman
 brew-cask:intellij-idea-ce
 brew-cask:pycharm-ce
-brew-cask:android-studio
 brew-cask:visual-studio-code
-brew-cask:cursor
-brew-cask:windsurf
-brew-cask:figma
-brew-cask:docker-desktop
-brew-cask:github-copilot-for-xcode
+
+# Applications installed outside of Homebrew - check for updates
+custom:open -a "Android Studio" --args --update-check
+custom:open -a "Cursor" --args --update-check
+custom:open -a "Windsurf" --args --update-check
+custom:open -a "Figma" --args --update-check
+custom:open -a "Docker" --args --update-check
+custom:open -a "GitHub Copilot for Xcode" --args --update-check
 
 # System utilities (optional - uncomment as needed)
 # brew:git

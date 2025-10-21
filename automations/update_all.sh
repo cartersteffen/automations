@@ -29,11 +29,11 @@ fi
 log "Starting update run using manifest: $MANIFEST_FILE"
 
 while IFS= read -r raw || [ -n "$raw" ]; do
-  line=$(echo "$raw" | sed 's/^\s\+//;s/\s\+$//')
+  line=$(echo "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   # skip empty and comment lines
-  case "$line" in
-    ""|#*) continue;;
-  esac
+  if [[ -z "$line" || "$line" =~ ^# ]]; then
+    continue
+  fi
 
   type=$(echo "$line" | cut -d':' -f1)
   value=$(echo "$line" | cut -d':' -f2-)
@@ -51,8 +51,8 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       ;;
     brew-cask)
       if command -v brew >/dev/null 2>&1; then
-        log "brew install --cask $value"
-        brew install --cask "$value" || log "brew cask install $value failed"
+        log "brew upgrade --cask $value"
+        brew upgrade --cask "$value" || log "brew upgrade --cask $value failed"
       else
         log "brew not found, skipping $value"
       fi
