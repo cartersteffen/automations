@@ -43,16 +43,42 @@ while IFS= read -r raw || [ -n "$raw" ]; do
   case "$type" in
     brew)
       if command -v brew >/dev/null 2>&1; then
-        log "brew upgrade $value"
-        brew upgrade "$value" || log "brew upgrade $value failed"
+        # Check if formula is installed
+        if brew list "$value" >/dev/null 2>&1; then
+          # Get current and latest versions
+          current_version=$(brew list --versions "$value" | awk '{print $2}')
+          latest_version=$(brew info --json=v2 "$value" | grep '"version"' | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
+          
+          if [ "$current_version" != "$latest_version" ]; then
+            log "Upgrading $value from $current_version to $latest_version"
+            brew upgrade "$value" || log "brew upgrade $value failed"
+          else
+            log "$value is already at latest version ($current_version), skipping"
+          fi
+        else
+          log "$value is not installed via brew, skipping"
+        fi
       else
         log "brew not found, skipping $value"
       fi
       ;;
     brew-cask)
       if command -v brew >/dev/null 2>&1; then
-        log "brew upgrade --cask $value"
-        brew upgrade --cask "$value" || log "brew upgrade --cask $value failed"
+        # Check if cask is installed
+        if brew list --cask "$value" >/dev/null 2>&1; then
+          # Get current and latest versions
+          current_version=$(brew list --cask --versions "$value" | awk '{print $2}')
+          latest_version=$(brew info --json=v2 --cask "$value" | grep '"version"' | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
+          
+          if [ "$current_version" != "$latest_version" ]; then
+            log "Upgrading $value from $current_version to $latest_version"
+            brew upgrade --cask "$value" || log "brew upgrade --cask $value failed"
+          else
+            log "$value is already at latest version ($current_version), skipping"
+          fi
+        else
+          log "$value is not installed via brew cask, skipping"
+        fi
       else
         log "brew not found, skipping $value"
       fi
