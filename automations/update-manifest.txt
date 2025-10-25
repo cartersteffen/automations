@@ -31,13 +31,9 @@ custom:if command -v jetbrains-toolbox >/dev/null 2>&1; then jetbrains-toolbox u
 # Update Android Studio plugins specifically
 custom:if [ -d "/Applications/Android Studio.app" ]; then open -a "Android Studio" --args --update-check; else echo "Android Studio not found"; fi
 
-# Restart applications after updates to ensure changes take effect
-custom:osascript -e 'tell application "Visual Studio Code" to quit' && sleep 2 && open -a "Visual Studio Code"
-custom:osascript -e 'tell application "Windsurf" to quit' && sleep 2 && open -a "Windsurf"
-custom:osascript -e 'tell application "Docker" to quit' && sleep 2 && open -a "Docker"
-custom:osascript -e 'tell application "IntelliJ IDEA CE" to quit' && sleep 2 && open -a "IntelliJ IDEA CE"
-custom:osascript -e 'tell application "PyCharm CE" to quit' && sleep 2 && open -a "PyCharm CE"
-custom:osascript -e 'tell application "Android Studio" to quit' && sleep 2 && open -a "Android Studio"
+# Restart applications only if updates were installed
+# Note: The update script should track which applications received updates
+# and only restart those applications to avoid unnecessary restarts
 
 # System utilities (optional - uncomment as needed)
 # brew:git

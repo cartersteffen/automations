@@ -17,8 +17,26 @@ MANIFEST_FILE=${1:-scripts/update-manifest.txt}
 ARTIFACTS_DIR=${ARTIFACTS_DIR:-artifacts}
 mkdir -p "$ARTIFACTS_DIR"
 
+# Track which applications need to be restarted
+declare -a APPS_TO_RESTART=()
+
 log(){
   printf "%s %s\n" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"
+}
+
+# Function to restart applications that received updates
+restart_updated_apps(){
+  if [ ${#APPS_TO_RESTART[@]} -eq 0 ]; then
+    log "No applications were updated, skipping restarts"
+    return
+  fi
+  
+  log "Restarting applications that received updates: ${APPS_TO_RESTART[*]}"
+  
+  for app in "${APPS_TO_RESTART[@]}"; do
+    log "Restarting $app"
+    osascript -e "tell application \"$app\" to quit" && sleep 2 && open -a "$app" || log "Failed to restart $app"
+  done
 }
 
 if [ ! -f "$MANIFEST_FILE" ]; then
@@ -51,7 +69,17 @@ while IFS= read -r raw || [ -n "$raw" ]; do
           
           if [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
-            brew upgrade "$value" || log "brew upgrade $value failed"
+            if brew upgrade "$value"; then
+              log "Successfully upgraded $value"
+              # Add to restart list if it's an application
+              case "$value" in
+                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker")
+                  APPS_TO_RESTART+=("$value")
+                  ;;
+              esac
+            else
+              log "brew upgrade $value failed"
+            fi
           else
             log "$value is already at latest version ($current_version), skipping"
           fi
@@ -72,7 +100,17 @@ while IFS= read -r raw || [ -n "$raw" ]; do
           
           if [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
-            brew upgrade --cask "$value" || log "brew upgrade --cask $value failed"
+            if brew upgrade --cask "$value"; then
+              log "Successfully upgraded $value"
+              # Add to restart list if it's an application
+              case "$value" in
+                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker")
+                  APPS_TO_RESTART+=("$value")
+                  ;;
+              esac
+            else
+              log "brew upgrade --cask $value failed"
+            fi
           else
             log "$value is already at latest version ($current_version), skipping"
           fi
@@ -137,13 +175,31 @@ while IFS= read -r raw || [ -n "$raw" ]; do
     custom)
       log "Running custom command: $value"
       # shellcheck disable=SC2086
-      eval "$value" || log "custom command failed: $value"
+      if eval "$value"; then
+        # Check if this command updated extensions/plugins that require app restart
+        case "$value" in
+          *"code --install-extension"*)
+            APPS_TO_RESTART+=("Visual Studio Code")
+            ;;
+          *"windsurf --update-extensions"*)
+            APPS_TO_RESTART+=("Windsurf")
+            ;;
+          *"jetbrains-toolbox update-plugins"*)
+            APPS_TO_RESTART+=("IntelliJ IDEA CE" "PyCharm CE" "Android Studio")
+            ;;
+        esac
+      else
+        log "custom command failed: $value"
+      fi
       ;;
     *)
       log "Unknown manifest type: $type (line: $line)"
       ;;
   esac
 done < "$MANIFEST_FILE"
+
+# Restart applications that received updates
+restart_updated_apps
 
 log "Update run completed"
 
