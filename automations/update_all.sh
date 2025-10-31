@@ -72,11 +72,11 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       if command -v brew >/dev/null 2>&1; then
         # Check if formula is installed
         if brew list "$value" >/dev/null 2>&1; then
-          # Get current and latest versions
-          current_version=$(brew list --versions "$value" | awk '{print $2}')
-          latest_version=$(brew info --json=v2 "$value" | grep '"version"' | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
-          
-          if [ "$current_version" != "$latest_version" ]; then
+          # Get current and latest versions (best-effort; do not exit on parsing failure)
+          current_version=$(brew list --versions "$value" | awk '{print $2}' || true)
+          latest_version=$(brew info --json=v2 "$value" 2>/dev/null | awk -F '"' '/"version"/ {print $4; exit}' || true)
+
+          if [ -n "$current_version" ] && [ -n "$latest_version" ] && [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade "$value"; then
               log "Successfully upgraded $value"
@@ -92,8 +92,20 @@ while IFS= read -r raw || [ -n "$raw" ]; do
               add_item FAILED "$value"
             fi
           else
-            log "$value is already at latest version ($current_version), skipping"
-            add_item SKIPPED "$value"
+            # If version parsing failed, attempt upgrade anyway (safe if up-to-date)
+            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+              log "Version check unavailable for $value, attempting upgrade"
+              if brew upgrade "$value"; then
+                log "Upgrade attempted for $value (may already be latest)"
+                add_item UPDATED "$value"
+              else
+                log "brew upgrade $value failed"
+                add_item FAILED "$value"
+              fi
+            else
+              log "$value is already at latest version ($current_version), skipping"
+              add_item SKIPPED "$value"
+            fi
           fi
         else
           log "$value is not installed via brew, skipping"
@@ -108,11 +120,11 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       if command -v brew >/dev/null 2>&1; then
         # Check if cask is installed
         if brew list --cask "$value" >/dev/null 2>&1; then
-          # Get current and latest versions
-          current_version=$(brew list --cask --versions "$value" | awk '{print $2}')
-          latest_version=$(brew info --json=v2 --cask "$value" | grep '"version"' | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
-          
-          if [ "$current_version" != "$latest_version" ]; then
+          # Get current and latest versions (best-effort; do not exit on parsing failure)
+          current_version=$(brew list --cask --versions "$value" | awk '{print $2}' || true)
+          latest_version=$(brew info --json=v2 --cask "$value" 2>/dev/null | awk -F '"' '/"version"/ {print $4; exit}' || true)
+
+          if [ -n "$current_version" ] && [ -n "$latest_version" ] && [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade --cask "$value"; then
               log "Successfully upgraded $value"
@@ -128,8 +140,20 @@ while IFS= read -r raw || [ -n "$raw" ]; do
               add_item FAILED "$value"
             fi
           else
-            log "$value is already at latest version ($current_version), skipping"
-            add_item SKIPPED "$value"
+            # If version parsing failed, attempt upgrade anyway (safe if up-to-date)
+            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+              log "Version check unavailable for cask $value, attempting upgrade"
+              if brew upgrade --cask "$value"; then
+                log "Upgrade attempted for cask $value (may already be latest)"
+                add_item UPDATED "$value"
+              else
+                log "brew upgrade --cask $value failed"
+                add_item FAILED "$value"
+              fi
+            else
+              log "$value is already at latest version ($current_version), skipping"
+              add_item SKIPPED "$value"
+            fi
           fi
         else
           log "$value is not installed via brew cask, skipping"
