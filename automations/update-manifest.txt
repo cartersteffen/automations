@@ -10,14 +10,12 @@ brew-cask:postman
 brew-cask:intellij-idea
 brew-cask:pycharm
 brew-cask:visual-studio-code
-
-# Applications installed outside of Homebrew - check for updates
-custom:open -a "Android Studio" --args --update-check
-custom:open -a "Cursor" --args --update-check
-custom:open -a "Windsurf" --args --update-check
-custom:open -a "Figma" --args --update-check
-custom:open -a "Docker" --args --update-check
-custom:open -a "GitHub Copilot for Xcode" --args --update-check
+brew-cask:windsurf
+brew-cask:figma
+brew-cask:docker
+brew-cask:github-copilot-for-xcode
+brew-cask:android-studio
+brew-cask:cursor
 
 # Update VS Code extensions
 custom:code --list-extensions --show-versions | grep -E "\(.*\)" | while read -r ext; do code --install-extension "$(echo "$ext" | cut -d'@' -f1)" --force; done
@@ -25,17 +23,6 @@ custom:code --list-extensions --show-versions | grep -E "\(.*\)" | while read -r
 # Update Windsurf extensions
 custom:windsurf --update-extensions
 
-# Update JetBrains IDEs plugins (IntelliJ IDEA, PyCharm, Android Studio)
+# Update JetBrains IDEs plugins
 custom:if command -v jetbrains-toolbox >/dev/null 2>&1; then jetbrains-toolbox update-plugins; else echo "JetBrains Toolbox not found, skipping plugin updates"; fi
 
-# Update Android Studio plugins specifically
-custom:if [ -d "/Applications/Android Studio.app" ]; then open -a "Android Studio" --args --update-check; else echo "Android Studio not found"; fi
-
-# Restart applications only if updates were installed
-# Note: The update script should track which applications received updates
-# and only restart those applications to avoid unnecessary restarts
-
-# System utilities (optional - uncomment as needed)
-# brew:git
-# npm:pnpm
-# pip:awscli

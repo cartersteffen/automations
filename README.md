@@ -55,6 +55,26 @@ Logs
 
 - The workflow saves the update log as an artifact named `update-logs`.
 
+Run report and console summary
+
+- Each run now emits a minimal console summary with counts and the names of items per action: Updated, Refreshed, Skipped, Failed.
+- A per-run text report is written to `artifacts/update-report-<UTC_TIMESTAMP>.txt`.
+- Report format (key=value lines):
+
+```text
+run_id=20250101T000000Z
+updated_count=2
+updated=postman visual-studio-code
+refreshed_count=1
+refreshed=Android Studio
+skipped_count=3
+skipped=intellij-idea brew git
+failed_count=0
+failed=
+```
+
+- The most recent report can be identified by the highest timestamp in the filename.
+
 Next steps and ideas
 
 - Add email or Slack notifications on update success/failure.

@@ -20,6 +20,15 @@ mkdir -p "$ARTIFACTS_DIR"
 # Track which applications need to be restarted
 declare -a APPS_TO_RESTART=()
 
+# Per-run reporting context
+RUN_ID=$(date -u +'%Y%m%dT%H%M%SZ')
+REPORT_FILE="$ARTIFACTS_DIR/update-report-$RUN_ID.txt"
+UPDATED=()
+REFRESHED=()
+SKIPPED=()
+FAILED=()
+add_item(){ local arr_name=$1 item=$2; eval "$arr_name+=(\"$item\")"; }
+
 log(){
   printf "%s %s\n" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"
 }
@@ -71,23 +80,28 @@ while IFS= read -r raw || [ -n "$raw" ]; do
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade "$value"; then
               log "Successfully upgraded $value"
+              add_item UPDATED "$value"
               # Add to restart list if it's an application
               case "$value" in
-                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker")
+                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
                   APPS_TO_RESTART+=("$value")
                   ;;
               esac
             else
               log "brew upgrade $value failed"
+              add_item FAILED "$value"
             fi
           else
             log "$value is already at latest version ($current_version), skipping"
+            add_item SKIPPED "$value"
           fi
         else
           log "$value is not installed via brew, skipping"
+          add_item SKIPPED "$value"
         fi
       else
         log "brew not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     brew-cask)
@@ -102,6 +116,7 @@ while IFS= read -r raw || [ -n "$raw" ]; do
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade --cask "$value"; then
               log "Successfully upgraded $value"
+              add_item UPDATED "$value"
               # Add to restart list if it's an application
               case "$value" in
                 "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker")
@@ -110,66 +125,111 @@ while IFS= read -r raw || [ -n "$raw" ]; do
               esac
             else
               log "brew upgrade --cask $value failed"
+              add_item FAILED "$value"
             fi
           else
             log "$value is already at latest version ($current_version), skipping"
+            add_item SKIPPED "$value"
           fi
         else
           log "$value is not installed via brew cask, skipping"
+          add_item SKIPPED "$value"
         fi
       else
         log "brew not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     mas)
       if command -v mas >/dev/null 2>&1; then
         log "mas upgrade $value"
-        mas upgrade "$value" || log "mas upgrade $value failed"
+        if mas upgrade "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "mas upgrade $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "mas (Mac App Store CLI) not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     npm)
       if command -v npm >/dev/null 2>&1; then
         log "npm update -g $value"
-        npm update -g "$value" || log "npm update -g $value failed"
+        if npm update -g "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "npm update -g $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "npm not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     pip)
       if command -v pip3 >/dev/null 2>&1; then
         log "pip3 install --upgrade $value"
-        pip3 install --upgrade "$value" || log "pip3 upgrade $value failed"
+        if pip3 install --upgrade "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "pip3 upgrade $value failed"
+          add_item FAILED "$value"
+        fi
       elif command -v pip >/dev/null 2>&1; then
         log "pip install --upgrade $value"
-        pip install --upgrade "$value" || log "pip upgrade $value failed"
+        if pip install --upgrade "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "pip upgrade $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "pip not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     apt)
       if command -v apt-get >/dev/null 2>&1; then
         log "apt-get update && apt-get install --only-upgrade -y $value"
-        sudo apt-get update && sudo apt-get install --only-upgrade -y "$value" || log "apt upgrade $value failed"
+        if sudo apt-get update && sudo apt-get install --only-upgrade -y "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "apt upgrade $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "apt-get not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     snap)
       if command -v snap >/dev/null 2>&1; then
         log "snap refresh $value"
-        sudo snap refresh "$value" || log "snap refresh $value failed"
+        if sudo snap refresh "$value"; then
+          add_item UPDATED "$value"
+        else
+          log "snap refresh $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "snap not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     flatpak)
       if command -v flatpak >/dev/null 2>&1; then
         log "flatpak update --app $value"
-        flatpak update --app "$value" -y || log "flatpak update $value failed"
+        if flatpak update --app "$value" -y; then
+          add_item UPDATED "$value"
+        else
+          log "flatpak update $value failed"
+          add_item FAILED "$value"
+        fi
       else
         log "flatpak not found, skipping $value"
+        add_item SKIPPED "$value"
       fi
       ;;
     custom)
@@ -188,8 +248,20 @@ while IFS= read -r raw || [ -n "$raw" ]; do
             APPS_TO_RESTART+=("IntelliJ IDEA CE" "PyCharm CE" "Android Studio")
             ;;
         esac
+        # Classify result for reporting
+        if echo "$value" | grep -qE 'open -a\s+"[^"]+"\s+--args\s+--update-check'; then
+          app_name=$(printf '%s' "$value" | sed -n 's/.*open -a "\([^"]\+\)".*/\1/p')
+          if [ -n "$app_name" ]; then
+            add_item REFRESHED "$app_name"
+          else
+            add_item REFRESHED "$value"
+          fi
+        else
+          add_item UPDATED "$value"
+        fi
       else
         log "custom command failed: $value"
+        add_item FAILED "$value"
       fi
       ;;
     *)
@@ -202,5 +274,33 @@ done < "$MANIFEST_FILE"
 restart_updated_apps
 
 log "Update run completed"
+
+# Emit minimal console summary and write report
+summary_section(){
+  local title=$1; shift
+  # shellcheck disable=SC2206
+  local items=("$@")
+  if [ ${#items[@]} -gt 0 ]; then
+    echo "$title (${#items[@]}): ${items[*]}"
+  else
+    echo "$title (0)"
+  fi
+}
+
+log "Run summary:"
+summary_section "Updated" "${UPDATED[@]}"
+summary_section "Refreshed" "${REFRESHED[@]}"
+summary_section "Skipped" "${SKIPPED[@]}"
+summary_section "Failed" "${FAILED[@]}"
+
+{
+  echo "run_id=$RUN_ID"
+  echo "updated_count=${#UPDATED[@]}"; echo "updated=${UPDATED[*]}"
+  echo "refreshed_count=${#REFRESHED[@]}"; echo "refreshed=${REFRESHED[*]}"
+  echo "skipped_count=${#SKIPPED[@]}"; echo "skipped=${SKIPPED[*]}"
+  echo "failed_count=${#FAILED[@]}"; echo "failed=${FAILED[*]}"
+} > "$REPORT_FILE"
+
+log "Report saved: $REPORT_FILE"
 
 exit 0
