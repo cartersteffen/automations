@@ -258,8 +258,18 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       ;;
     custom)
       log "Running custom command: $value"
+      # Temporarily disable set -u for custom commands to avoid unbound variable errors in subshells
+      # Wrap entire execution in subshell to ensure set +u applies to all subshells created by pipes
       # shellcheck disable=SC2086
-      if eval "$value"; then
+      (
+        set +u
+        set +e  # Don't exit on error in subshell
+        eval "$value" 2>&1
+        exit_code=$?
+        exit $exit_code
+      )
+      cmd_exit=$?
+      if [ $cmd_exit -eq 0 ]; then
         # Check if this command updated extensions/plugins that require app restart
         case "$value" in
           *"code --install-extension"*)
@@ -312,10 +322,10 @@ summary_section(){
 }
 
 log "Run summary:"
-summary_section "Updated" "${UPDATED[@]}"
-summary_section "Refreshed" "${REFRESHED[@]}"
-summary_section "Skipped" "${SKIPPED[@]}"
-summary_section "Failed" "${FAILED[@]}"
+summary_section "Updated" "${UPDATED[@]:-}"
+summary_section "Refreshed" "${REFRESHED[@]:-}"
+summary_section "Skipped" "${SKIPPED[@]:-}"
+summary_section "Failed" "${FAILED[@]:-}"
 
 {
   echo "run_id=$RUN_ID"
