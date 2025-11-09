@@ -33,6 +33,61 @@ log(){
   printf "%s %s\n" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"
 }
 
+# Function to map brew package names to macOS application names
+get_app_name(){
+  local package=$1
+  case "$package" in
+    "visual-studio-code")
+      echo "Visual Studio Code"
+      ;;
+    "intellij-idea-ce"|"intellij-idea")
+      # Check if IntelliJ IDEA CE or IntelliJ IDEA is installed
+      if [ -d "/Applications/IntelliJ IDEA CE.app" ]; then
+        echo "IntelliJ IDEA CE"
+      elif [ -d "/Applications/IntelliJ IDEA.app" ]; then
+        echo "IntelliJ IDEA"
+      else
+        echo "IntelliJ IDEA CE"
+      fi
+      ;;
+    "pycharm-ce"|"pycharm")
+      # Check if PyCharm CE or PyCharm is installed
+      if [ -d "/Applications/PyCharm CE.app" ]; then
+        echo "PyCharm CE"
+      elif [ -d "/Applications/PyCharm.app" ]; then
+        echo "PyCharm"
+      else
+        echo "PyCharm CE"
+      fi
+      ;;
+    "postman")
+      echo "Postman"
+      ;;
+    "docker")
+      echo "Docker"
+      ;;
+    "windsurf")
+      echo "Windsurf"
+      ;;
+    "figma")
+      echo "Figma"
+      ;;
+    "github-copilot-for-xcode")
+      echo "GitHub Copilot for Xcode"
+      ;;
+    "android-studio")
+      echo "Android Studio"
+      ;;
+    "cursor")
+      echo "Cursor"
+      ;;
+    *)
+      # Try to convert common patterns: lowercase-with-hyphens -> Title Case With Spaces
+      echo "$package" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1'
+      ;;
+  esac
+}
+
 # Function to restart applications that received updates
 restart_updated_apps(){
   if [ ${#APPS_TO_RESTART[@]} -eq 0 ]; then
@@ -42,9 +97,24 @@ restart_updated_apps(){
   
   log "Restarting applications that received updates: ${APPS_TO_RESTART[*]}"
   
-  for app in "${APPS_TO_RESTART[@]}"; do
-    log "Restarting $app"
-    osascript -e "tell application \"$app\" to quit" && sleep 2 && open -a "$app" || log "Failed to restart $app"
+  for package in "${APPS_TO_RESTART[@]}"; do
+    app_name=$(get_app_name "$package")
+    log "Restarting $app_name (package: $package)"
+    
+    # Try to quit the application if it's running (ignore errors if not running)
+    log "Closing $app_name (if running)"
+    osascript -e "tell application \"$app_name\" to quit" 2>/dev/null || true
+    
+    # Wait for the app to fully close (give it time to save state)
+    sleep 3
+    
+    # Reopen the application
+    log "Opening $app_name"
+    if open -a "$app_name" 2>/dev/null; then
+      log "Successfully restarted $app_name"
+    else
+      log "Failed to restart $app_name - it may not be installed or the app name may be incorrect"
+    fi
   done
 }
 
@@ -79,14 +149,21 @@ while IFS= read -r raw || [ -n "$raw" ]; do
           if [ -n "$current_version" ] && [ -n "$latest_version" ] && [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade "$value"; then
-              log "Successfully upgraded $value"
-              add_item UPDATED "$value"
-              # Add to restart list if it's an application
-              case "$value" in
-                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
-                  APPS_TO_RESTART+=("$value")
-                  ;;
-              esac
+              # Verify the version actually changed after upgrade
+              new_version=$(brew list --versions "$value" | awk '{print $2}' || true)
+              if [ -n "$new_version" ] && [ "$new_version" != "$current_version" ]; then
+                log "Successfully upgraded $value from $current_version to $new_version"
+                add_item UPDATED "$value"
+                # Add to restart list if it's an application
+                case "$value" in
+                  "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
+                    APPS_TO_RESTART+=("$value")
+                    ;;
+                esac
+              else
+                log "Upgrade completed but version unchanged (already at latest: $current_version)"
+                add_item SKIPPED "$value"
+              fi
             else
               log "brew upgrade $value failed"
               add_item FAILED "$value"
@@ -96,8 +173,21 @@ while IFS= read -r raw || [ -n "$raw" ]; do
             if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
               log "Version check unavailable for $value, attempting upgrade"
               if brew upgrade "$value"; then
-                log "Upgrade attempted for $value (may already be latest)"
-                add_item UPDATED "$value"
+                # Check if version changed after upgrade
+                new_version=$(brew list --versions "$value" | awk '{print $2}' || true)
+                if [ -n "$new_version" ] && [ -n "$current_version" ] && [ "$new_version" != "$current_version" ]; then
+                  log "Upgrade completed: $value updated from $current_version to $new_version"
+                  add_item UPDATED "$value"
+                  # Add to restart list if it's an application
+                  case "$value" in
+                    "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
+                      APPS_TO_RESTART+=("$value")
+                      ;;
+                  esac
+                else
+                  log "Upgrade attempted for $value (may already be latest)"
+                  add_item UPDATED "$value"
+                fi
               else
                 log "brew upgrade $value failed"
                 add_item FAILED "$value"
@@ -127,14 +217,21 @@ while IFS= read -r raw || [ -n "$raw" ]; do
           if [ -n "$current_version" ] && [ -n "$latest_version" ] && [ "$current_version" != "$latest_version" ]; then
             log "Upgrading $value from $current_version to $latest_version"
             if brew upgrade --cask "$value"; then
-              log "Successfully upgraded $value"
-              add_item UPDATED "$value"
-              # Add to restart list if it's an application
-              case "$value" in
-                "visual-studio-code"|"intellij-idea-ce"|"pycharm-ce"|"postman"|"docker")
-                  APPS_TO_RESTART+=("$value")
-                  ;;
-              esac
+              # Verify the version actually changed after upgrade
+              new_version=$(brew list --cask --versions "$value" | awk '{print $2}' || true)
+              if [ -n "$new_version" ] && [ "$new_version" != "$current_version" ]; then
+                log "Successfully upgraded $value from $current_version to $new_version"
+                add_item UPDATED "$value"
+                # Add to restart list if it's an application
+                case "$value" in
+                  "visual-studio-code"|"intellij-idea"|"pycharm"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
+                    APPS_TO_RESTART+=("$value")
+                    ;;
+                esac
+              else
+                log "Upgrade completed but version unchanged (already at latest: $current_version)"
+                add_item SKIPPED "$value"
+              fi
             else
               log "brew upgrade --cask $value failed"
               add_item FAILED "$value"
@@ -144,8 +241,21 @@ while IFS= read -r raw || [ -n "$raw" ]; do
             if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
               log "Version check unavailable for cask $value, attempting upgrade"
               if brew upgrade --cask "$value"; then
-                log "Upgrade attempted for cask $value (may already be latest)"
-                add_item UPDATED "$value"
+                # Check if version changed after upgrade
+                new_version=$(brew list --cask --versions "$value" | awk '{print $2}' || true)
+                if [ -n "$new_version" ] && [ -n "$current_version" ] && [ "$new_version" != "$current_version" ]; then
+                  log "Upgrade completed: $value updated from $current_version to $new_version"
+                  add_item UPDATED "$value"
+                  # Add to restart list if it's an application
+                  case "$value" in
+                    "visual-studio-code"|"intellij-idea"|"pycharm"|"postman"|"docker"|"windsurf"|"figma"|"github-copilot-for-xcode"|"android-studio"|"cursor")
+                      APPS_TO_RESTART+=("$value")
+                      ;;
+                  esac
+                else
+                  log "Upgrade attempted for cask $value (may already be latest)"
+                  add_item UPDATED "$value"
+                fi
               else
                 log "brew upgrade --cask $value failed"
                 add_item FAILED "$value"
