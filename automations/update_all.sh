@@ -439,10 +439,14 @@ summary_section "Failed" "${FAILED[@]:-}"
 
 {
   echo "run_id=$RUN_ID"
-  echo "updated_count=${#UPDATED[@]}"; echo "updated=${UPDATED[*]}"
-  echo "refreshed_count=${#REFRESHED[@]}"; echo "refreshed=${REFRESHED[*]}"
-  echo "skipped_count=${#SKIPPED[@]}"; echo "skipped=${SKIPPED[*]}"
-  echo "failed_count=${#FAILED[@]}"; echo "failed=${FAILED[*]}"
+  echo "updated_count=${#UPDATED[@]}"
+  [ ${#UPDATED[@]} -gt 0 ] && echo "updated=${UPDATED[*]}" || echo "updated="
+  echo "refreshed_count=${#REFRESHED[@]}"
+  [ ${#REFRESHED[@]} -gt 0 ] && echo "refreshed=${REFRESHED[*]}" || echo "refreshed="
+  echo "skipped_count=${#SKIPPED[@]}"
+  [ ${#SKIPPED[@]} -gt 0 ] && echo "skipped=${SKIPPED[*]}" || echo "skipped="
+  echo "failed_count=${#FAILED[@]}"
+  [ ${#FAILED[@]} -gt 0 ] && echo "failed=${FAILED[*]}" || echo "failed="
 } > "$REPORT_FILE"
 
 log "Report saved: $REPORT_FILE"
