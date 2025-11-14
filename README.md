@@ -57,23 +57,57 @@ Logs
 
 Run report and console summary
 
-- Each run now emits a minimal console summary with counts and the names of items per action: Updated, Refreshed, Skipped, Failed.
-- A per-run text report is written to `artifacts/update-report-<UTC_TIMESTAMP>.txt`.
-- Report format (key=value lines):
+- Each run emits a console summary showing counts of Updated, Refreshed, Skipped, and Failed items.
+- **Resilient execution**: The script continues trying all updates even if some fail, ensuring maximum coverage.
+- **JSON reporting**: All reports are now in JSON format for easy parsing and analysis.
 
-```text
-run_id=20250101T000000Z
-updated_count=2
-updated=postman visual-studio-code
-refreshed_count=1
-refreshed=Android Studio
-skipped_count=3
-skipped=intellij-idea brew git
-failed_count=0
-failed=
+### Report Files
+
+1. **Per-run detailed report**: `artifacts/update-report-<RUN_ID>.json`
+   - Complete details for every package processed
+   - Timestamps, version changes, and error messages
+   - Status for each package (updated, refreshed, skipped, failed)
+
+2. **Summary file**: `artifacts/update-summary.json`
+   - Historical tracking of all runs
+   - Quick overview of each run's results
+   - Links to detailed reports
+
+### Example Report Structure
+
+```json
+{
+  "run_id": "20250101T000000Z",
+  "start_time": "2025-01-01T00:00:00Z",
+  "end_time": "2025-01-01T00:15:30Z",
+  "summary": {
+    "updated": 5,
+    "refreshed": 2,
+    "skipped": 10,
+    "failed": 1,
+    "total": 18
+  },
+  "results": [
+    {
+      "timestamp": "2025-01-01T00:01:23Z",
+      "status": "updated",
+      "type": "brew",
+      "package": "node",
+      "old_version": "20.0.0",
+      "new_version": "20.1.0"
+    },
+    {
+      "timestamp": "2025-01-01T00:02:45Z",
+      "status": "failed",
+      "type": "npm",
+      "package": "typescript",
+      "error": "EACCES: permission denied"
+    }
+  ]
+}
 ```
 
-- The most recent report can be identified by the highest timestamp in the filename.
+For more details on the reporting format and usage examples, see [REPORTING.md](REPORTING.md).
 
 Next steps and ideas
 
