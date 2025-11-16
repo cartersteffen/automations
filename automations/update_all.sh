@@ -415,13 +415,18 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       log "Running custom command: $value"
 
       # If this is "brew upgrade" (without package name), capture cask versions before upgrade
-      # List of casks we care about from the manifest
-      casks_to_check=("postman" "intellij-idea" "pycharm" "visual-studio-code" "windsurf" "figma" "github-copilot-for-xcode" "android-studio" "cursor" "docker")
-      declare -A cask_versions_before
+      # Use a Bash 3.2 compatible approach (no associative arrays)
       if echo "$value" | grep -qE '^brew upgrade\s*$'; then
-        for cask in "${casks_to_check[@]}"; do
+        # List of casks we care about from the manifest
+        casks_to_check="postman intellij-idea pycharm visual-studio-code windsurf figma github-copilot-for-xcode android-studio cursor docker"
+        cask_versions_before=""
+
+        for cask in $casks_to_check; do
           if brew list --cask "$cask" >/dev/null 2>&1; then
-            cask_versions_before["$cask"]=$(brew list --cask --versions "$cask" | awk '{print $2}' || echo "")
+            version=$(brew list --cask --versions "$cask" 2>/dev/null | awk '{print $2}' || echo "")
+            if [ -n "$version" ]; then
+              cask_versions_before="$cask_versions_before$cask:$version "
+            fi
           fi
         done
       fi
@@ -442,11 +447,14 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       if [ -z "${cmd_exit:-}" ]; then
         # If this was "brew upgrade", check which casks were upgraded
         if echo "$value" | grep -qE '^brew upgrade\s*$'; then
-          for cask in "${casks_to_check[@]}"; do
-            if [ -n "${cask_versions_before[$cask]:-}" ] && brew list --cask "$cask" >/dev/null 2>&1; then
-              cask_version_after=$(brew list --cask --versions "$cask" | awk '{print $2}' || echo "")
-              if [ -n "$cask_version_after" ] && [ "$cask_version_after" != "${cask_versions_before[$cask]}" ]; then
-                log "Detected $cask was upgraded from ${cask_versions_before[$cask]} to $cask_version_after by brew upgrade"
+          for cask in $casks_to_check; do
+            # Extract version from cask_versions_before
+            old_version=$(echo "$cask_versions_before" | grep -o "$cask:[^ ]*" | cut -d: -f2)
+
+            if [ -n "$old_version" ] && brew list --cask "$cask" >/dev/null 2>&1; then
+              new_version=$(brew list --cask --versions "$cask" 2>/dev/null | awk '{print $2}' || echo "")
+              if [ -n "$new_version" ] && [ "$new_version" != "$old_version" ]; then
+                log "Detected $cask was upgraded from $old_version to $new_version by brew upgrade"
                 APPS_TO_RESTART+=("$cask")
               fi
             fi
