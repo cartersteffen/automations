@@ -54,6 +54,76 @@ log(){
   printf "%s %s\n" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"
 }
 
+# Sudo password management
+# This script uses interactive password prompts for security.
+# For automated runs, configure passwordless sudo (see documentation below).
+SUDO_PASSWORD=""
+SUDO_PASSWORD_SET=false
+
+# Function to get sudo password if needed
+get_sudo_password() {
+  if [ "$SUDO_PASSWORD_SET" = true ]; then
+    return 0
+  fi
+
+  # Check if passwordless sudo is available
+  if sudo -n true 2>/dev/null; then
+    log "Passwordless sudo is available - no password needed"
+    SUDO_PASSWORD_SET=true
+    return 0
+  fi
+
+  # Check if running in interactive terminal
+  if [ ! -t 0 ]; then
+    log "ERROR: Sudo password required but running in non-interactive mode."
+    log ""
+    log "To fix this, configure passwordless sudo for package management commands:"
+    log "  1. Run: sudo visudo"
+    log "  2. Add a line like (replace USERNAME with your username):"
+    log "     USERNAME ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/snap"
+    log ""
+    log "Or run this script in an interactive terminal where you can enter the password."
+    return 1
+  fi
+
+  # Interactive mode: prompt for password once
+  if [ -z "$SUDO_PASSWORD" ]; then
+    log "Sudo password required for package updates."
+    log "You'll only need to enter this once - it will be reused for all sudo commands."
+    printf "Please enter your sudo password: "
+    read -rs SUDO_PASSWORD
+    echo ""  # New line after hidden password input
+    SUDO_PASSWORD_SET=true
+    
+    # Verify the password works
+    if ! echo "$SUDO_PASSWORD" | sudo -S true 2>/dev/null; then
+      log "ERROR: Invalid password. Please try again."
+      SUDO_PASSWORD=""
+      SUDO_PASSWORD_SET=false
+      return 1
+    fi
+    log "Sudo password verified - will be reused for remaining commands"
+  fi
+}
+
+# Function to run sudo command with automatic password
+run_sudo() {
+  # Check if passwordless sudo works
+  if sudo -n true 2>/dev/null; then
+    sudo "$@"
+    return $?
+  fi
+  
+  # Get password if needed
+  if ! get_sudo_password; then
+    return 1
+  fi
+  
+  # Use sudo -S to pass password via stdin
+  echo "$SUDO_PASSWORD" | sudo -S "$@"
+  return $?
+}
+
 # Function to map brew package names to macOS application names
 get_app_name(){
   local package=$1
@@ -368,7 +438,7 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       fi
 
       log "apt-get update && apt-get install --only-upgrade -y $value"
-      error_output=$(sudo apt-get update && sudo apt-get install --only-upgrade -y "$value" 2>&1) || upgrade_failed=$?
+      error_output=$(run_sudo apt-get update && run_sudo apt-get install --only-upgrade -y "$value" 2>&1) || upgrade_failed=$?
       if [ -z "${upgrade_failed:-}" ]; then
         add_result "updated" "apt" "$value"
       else
@@ -385,7 +455,7 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       fi
 
       log "snap refresh $value"
-      error_output=$(sudo snap refresh "$value" 2>&1) || upgrade_failed=$?
+      error_output=$(run_sudo snap refresh "$value" 2>&1) || upgrade_failed=$?
       if [ -z "${upgrade_failed:-}" ]; then
         add_result "updated" "snap" "$value"
       else
